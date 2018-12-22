@@ -17,7 +17,8 @@ func main() {
 	var class [][]float64
 
 	//重み
-	w := []float64{10.0, 2.3, 2.1}
+	w := []float64{18.6, -11.1, 21.1}
+	w0 := []float64{18.6, -11.1, 21.1}
 
 	//Dot := matrix.Product
 	//Inv := matrix.Inverse
@@ -52,28 +53,66 @@ func main() {
 	b := make([]float64, n*2)
 	for i := 0; i < n*2; i++ {
 		if i >= 100 {
-			b[i] = 1
+			b[i] = 10
 		} else {
-			b[i] = -1
+			b[i] = -10
 		}
 	}
 	max, min := 0.0, 199.0
+	var errGraph []float64
+	var beforeError float64
+	var afterError float64
+	afterError = 10000
 
-	count := 0
 	for {
 		rand := randomCount(max, min)
-		fmt.Println(class[int(rand)])
-		err := errorFunc(w, class[int(rand)], b[int(rand)])
-		fmt.Print("誤差関数")
-		fmt.Println(err)
-		if err < 0.1 {
-			count++
-		}
-		if count == 15 {
+		//fmt.Println(class[int(rand)])
+		beforeError = afterError
+		//err := errorFunc(w, class[int(rand)], b[int(rand)])
+		//fmt.Print("誤差関数")
+		//fmt.Println(err)
+		errGraph = append(errGraph, beforeError)
+		//if err < 0.0000001 {
+		//	break
+		//}
+		w = weightCalc(w, class[int(rand)], 0.0001, b[int(rand)])
+		fmt.Println(int(rand))
+		afterError = errorFunc(w, class[int(rand)], b[int(rand)])
+		if (beforeError-afterError)*(beforeError-afterError) < 0.0000001 {
 			break
 		}
-		w = weightCalc(w, class[int(rand)], 0.0001, b[int(rand)])
+	}
 
+	fmt.Println(w)
+	p2, err := plot.New()
+	if err != nil {
+		panic(err)
+	}
+
+	// Make a line plotter and set its style.
+	l, err := plotter.NewLine(lineGraph(errGraph))
+	if err != nil {
+		panic(err)
+	}
+	l.LineStyle.Width = vg.Points(1)
+	l.LineStyle.Dashes = []vg.Length{vg.Points(5), vg.Points(5)}
+	l.LineStyle.Color = color.RGBA{B: 255, A: 255}
+
+	p2.Add(l)
+	p2.Title.Text = "Plotutil example"
+	p2.X.Label.Text = "X"
+	p2.Y.Label.Text = "Y"
+
+	// Axis ranges
+	//p2.X.Min = 0
+	//p2.X.Max = 10
+	//p2.Y.Min = 0
+	//p2.Y.Max = 10
+
+	p2.Legend.Add("line", l)
+	// Save the plot to a PNG file.
+	if err := p2.Save(4*vg.Inch, 4*vg.Inch, "points.png"); err != nil {
+		panic(err)
 	}
 
 	//mb := matrix.MakeDenseMatrix(b, n*2, 1)
@@ -88,6 +127,13 @@ func main() {
 	//a1 := w.Get(0, 0)
 	//b1 := w.Get(1, 0)
 	//c1 := w.Get(2, 0)
+	//初期境界線のplot--------------------------------------------------------
+	border := plotter.NewFunction(func(x float64) float64 {
+		//x2 = -(w1 / w2)*x1 - w0 / w2
+		return -(w0[1]/w0[2])*x - (w0[0] / w0[2])
+	})
+	border.Color = color.RGBA{B: 155, A: 5}
+	//----------------------------------------------------------------------
 
 	//最終境界線のplot--------------------------------------------------------
 	lastBorder := plotter.NewFunction(func(x float64) float64 {
@@ -128,6 +174,7 @@ func main() {
 	p.Add(y)
 	p.Add(r)
 	p.Add(lastBorder)
+	p.Add(border)
 	p.Legend.Add("class1", s)
 	p.Legend.Add("class2", y)
 
@@ -201,8 +248,8 @@ func train(index, n int) []float64 {
 
 func weightCalc(w, x []float64, p, b float64) []float64 {
 	innerProduct := innerProduct(w, x)
-	fmt.Println(innerProduct)
-	fmt.Println("内積")
+	//fmt.Println(innerProduct)
+	//fmt.Println("内積")
 	w[0] = w[0] - p*((innerProduct-b)*x[0])
 	w[1] = w[1] - p*((innerProduct-b)*x[1])
 	w[2] = w[2] - p*((innerProduct-b)*x[2])
@@ -228,4 +275,15 @@ func errorFunc(w, x []float64, b float64) float64 {
 	err = err * err
 
 	return err
+}
+
+// randomPoints returns some random x, y points.
+func lineGraph(n []float64) plotter.XYs {
+	pts := make(plotter.XYs, len(n))
+	for i, m := range n {
+		//fmt.Println(m)
+		pts[i].X = float64(i)
+		pts[i].Y = m
+	}
+	return pts
 }
