@@ -12,16 +12,19 @@ import (
 	"gonum.org/v1/plot/plotter"
 )
 
+const (
+	max, min = 0.0, 199.0
+)
+
 func main() {
 
 	var class [][]float64
 
 	//重み
 	w := []float64{18.6, -11.1, 21.1}
-	w0 := []float64{18.6, -11.1, 21.1}
 
-	//Dot := matrix.Product
-	//Inv := matrix.Inverse
+	//初期の重み
+	firstW := w
 
 	// 図の生成
 	p, err := plot.New()
@@ -47,37 +50,31 @@ func main() {
 	class1, plotdata1 := randomPoints(n, x1, y1)
 	class2, plotdata2 := randomPoints(n, x2, y2)
 	class = append(class1, class2...)
-	//mClass := matrix.MakeDenseMatrix(class, n*2, 3) // 配列から行列に変換
 
 	//教師データ作成
 	b := make([]float64, n*2)
-	for i := 0; i < n*2; i++ {
-		if i >= 100 {
-			b[i] = 10
-		} else {
-			b[i] = -10
-		}
-	}
-	max, min := 0.0, 199.0
+	makeTrainData(b, n)
+
 	var errGraph []float64
 	var beforeError float64
 	var afterError float64
 	afterError = 10000
 
 	for {
+		//0~199をランダムに生成
 		rand := randomCount(max, min)
-		//fmt.Println(class[int(rand)])
+
 		beforeError = afterError
-		//err := errorFunc(w, class[int(rand)], b[int(rand)])
-		//fmt.Print("誤差関数")
-		//fmt.Println(err)
+
 		errGraph = append(errGraph, beforeError)
-		//if err < 0.0000001 {
-		//	break
-		//}
+
+		//重みの更新
 		w = weightCalc(w, class[int(rand)], 0.0001, b[int(rand)])
-		fmt.Println(int(rand))
+
+		//誤差を求める
 		afterError = errorFunc(w, class[int(rand)], b[int(rand)])
+
+		//前回と今回の誤差の二乗が閾値以下だったら終了
 		if (beforeError-afterError)*(beforeError-afterError) < 0.0000001 {
 			break
 		}
@@ -103,34 +100,16 @@ func main() {
 	p2.X.Label.Text = "X"
 	p2.Y.Label.Text = "Y"
 
-	// Axis ranges
-	//p2.X.Min = 0
-	//p2.X.Max = 10
-	//p2.Y.Min = 0
-	//p2.Y.Max = 10
-
 	p2.Legend.Add("line", l)
 	// Save the plot to a PNG file.
 	if err := p2.Save(4*vg.Inch, 4*vg.Inch, "points.png"); err != nil {
 		panic(err)
 	}
 
-	//mb := matrix.MakeDenseMatrix(b, n*2, 1)
-
-	//tClass := mClass.Transpose() // 転置行列
-	//
-	//w := Dot(tClass, mClass)
-	//w = Inv(w).DenseMatrix()
-	//w = Dot(w, tClass)
-	//w = Dot(w, mb)
-	//
-	//a1 := w.Get(0, 0)
-	//b1 := w.Get(1, 0)
-	//c1 := w.Get(2, 0)
 	//初期境界線のplot--------------------------------------------------------
 	border := plotter.NewFunction(func(x float64) float64 {
 		//x2 = -(w1 / w2)*x1 - w0 / w2
-		return -(w0[1]/w0[2])*x - (w0[0] / w0[2])
+		return -(firstW[1]/firstW[2])*x - (firstW[0] / firstW[2])
 	})
 	border.Color = color.RGBA{B: 155, A: 5}
 	//----------------------------------------------------------------------
@@ -203,24 +182,6 @@ func random(axis float64) float64 {
 	return rand.NormFloat64()*dispersion + axis
 }
 
-////学習データの生成
-//func randomPoints(n int, x, y float64) ([]float64, plotter.XYs) {
-//	matrix := make([][]float64, n)
-//	pts := make(plotter.XYs, n)
-//	var gyo []float64
-//
-//	for i := range matrix {
-//		l := random(x)
-//		m := random(y)
-//		gyo = append(gyo, 1.0)
-//		gyo = append(gyo, l)
-//		gyo = append(gyo, m)
-//		pts[i].X = l
-//		pts[i].Y = m
-//	}
-//	return gyo, pts
-//}
-
 //学習データの生成
 func randomPoints(n int, x, y float64) ([][]float64, plotter.XYs) {
 	matrix := make([][]float64, n)
@@ -236,14 +197,15 @@ func randomPoints(n int, x, y float64) ([][]float64, plotter.XYs) {
 }
 
 //学習
-func train(index, n int) []float64 {
-	var array []float64
-
-	for i := 0; i < n; i++ {
-		array = append(array, float64(index))
+//前半に-1,後半に1を格納
+func makeTrainData(b []float64, n int) {
+	for i := 0; i < n*2; i++ {
+		if i >= n {
+			b[i] = 1
+		} else {
+			b[i] = -1
+		}
 	}
-
-	return array
 }
 
 func weightCalc(w, x []float64, p, b float64) []float64 {
@@ -277,7 +239,7 @@ func errorFunc(w, x []float64, b float64) float64 {
 	return err
 }
 
-// randomPoints returns some random x, y points.
+// 誤差関数の出力
 func lineGraph(n []float64) plotter.XYs {
 	pts := make(plotter.XYs, len(n))
 	for i, m := range n {
